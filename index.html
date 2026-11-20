@@ -119,6 +119,12 @@
     background: var(--video-bg);
     cursor: zoom-in;
   }
+  .video iframe.cam {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    border: 0;
+    pointer-events: none; /* a click on the tile enlarges it */
+  }
   .video img.cam {
     position: absolute; inset: 0;
     width: 100%; height: 100%;
@@ -789,6 +795,17 @@ function buildGrid() {
     setName(t);
     loadMainsailMeta(t);
     t.img.style.transform = imgTransform(p);
+    if (/\/webrtc$/i.test(p.stream)) {
+      // WebRTC (hardware H.264): the printer's own player page in a frame.
+      // Far lighter on the printer than MJPEG; the Snapmaker U1 shuts a
+      // print down under a live MJPEG viewer.
+      const f = document.createElement("iframe");
+      f.className = "cam";
+      f.allow = "autoplay";
+      t.img.replaceWith(f);
+      t.webrtc = f;
+      t.msg.style.display = "none";
+    }
     t.img.addEventListener("load", () => { t.msg.style.display = "none"; });
     t.img.addEventListener("error", () => {
       t.msg.textContent = "No video, retrying…";
@@ -806,12 +823,22 @@ function buildGrid() {
 
 function startStream(t) {
   if (t.p.show === false || document.hidden) return;
+  if (t.webrtc) {
+    const u = streamUrl(t.p);
+    if (t.webrtc.getAttribute("src") !== u) t.webrtc.src = u;
+    return;
+  }
   // Cache-buster so a reconnect opens a fresh stream instead of a stale one
   const url = streamUrl(t.p);
   t.img.src = url + (url.includes("?") ? "&" : "?") + "_t=" + Date.now();
 }
 function stopStream(t) {
   clearTimeout(t.retry);
+  if (t.webrtc) {
+    // Dropping the frame ends the session, freeing one of the printer's few WebRTC slots
+    t.webrtc.removeAttribute("src");
+    return;
+  }
   // Dropping src closes the MJPEG connection, so a printer isn't streaming to a hidden tab
   t.img.removeAttribute("src");
   t.img.src = "data:,";
@@ -1331,6 +1358,23 @@ async function syncSpools(t) {
 
 // --- enlarged view ----------------------------------------------------
 function openZoom(t) {
+  if (t.webrtc) {
+    // The printer's player, enlarged. The tile's own session pauses meanwhile,
+    // so zooming takes no extra WebRTC slot (the U1 serves four).
+    stopStream(t);
+    zoomTile = t;
+    $("zoomCap").textContent = displayName(t);
+    $("zoomHint").textContent = "";
+    $("zoomImg").style.display = "none";
+    const f = document.createElement("iframe");
+    f.title = displayName(t) + " camera";
+    f.allow = "autoplay; fullscreen";
+    f.src = streamUrl(t.p);
+    f.style.setProperty("--zoom-ar", t.p.screenAr || "16 / 9");
+    $("zoom").appendChild(f);
+    $("zoom").classList.add("open");
+    return;
+  }
   $("zoomCap").textContent = displayName(t);
   $("zoomHint").textContent = "";
   $("zoomImg").style.display = "";
@@ -1350,7 +1394,9 @@ function openScreenZoom(t) {
   $("zoom").appendChild(f);
   $("zoom").classList.add("open");
 }
+let zoomTile = null; // a WebRTC tile paused while its camera is enlarged
 function closeZoom() {
+  if (zoomTile) { const t = zoomTile; zoomTile = null; startStream(t); }
   $("zoom").classList.remove("open");
   $("zoomImg").src = "data:,";
   $("zoom").querySelectorAll("iframe").forEach((f) => f.remove());

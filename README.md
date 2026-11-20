@@ -11,6 +11,9 @@ any static web server, or straight from disk.
 - **A tile for each printer**, with its MJPEG camera stream and, where the
   printer has one, its remote screen page (Zmod and Snapmaker U1 serve it at
   `/screen/`). Click a tile to enlarge it.
+- **WebRTC cameras**: a stream path ending in `/webrtc` (the Snapmaker U1's
+  `/webcam/webrtc`, camera-streamer) shows the printer's own WebRTC player
+  instead of an MJPEG stream. It is far lighter on the printer.
 - **Print status from Moonraker**: state, progress, ETA and temperatures. The
   printer's name and logo come from its Mainsail unless you set your own.
 - **Spools row**: one entry per physical lane, built from Moonraker's
