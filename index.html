@@ -530,6 +530,12 @@ async function loadMainsailMeta(t) {
     if (general?.value?.printername) t.mainsailName = general.value.printername;
   } catch {}
   setName(t);
+  try {
+    const cams = ((await getJson(moonrakerUrl(t.p, "/server/webcams/list"))).webcams || [])
+      .filter((c) => c.enabled !== false);
+    t.cam = cams.find((c) => c.stream_url === t.p.stream) || cams[0];
+    t.img.style.transform = imgTransform(t.p, t.cam);
+  } catch {}
 
   let logo = `http://${t.p.host}/img/logo.svg`;
   // Card background without a print thumbnail: the printer's own sidebar
@@ -597,10 +603,18 @@ function setName(t) {
   if (t.frame) t.frame.title = displayName(t) + " screen";
 }
 
-function imgTransform(p) {
+// The camera's orientation: this page's setting for the printer when it has
+// one, else the printer's own Moonraker webcam config (rotation, flips).
+function imgTransform(p, cam) {
   const parts = [];
-  if (p.rotate) parts.push(`rotate(${p.rotate}deg)`);
-  if (p.flip) parts.push("scaleX(-1)");
+  if (p.rotate || p.flip || !cam) {
+    if (p.rotate) parts.push(`rotate(${p.rotate}deg)`);
+    if (p.flip) parts.push("scaleX(-1)");
+  } else {
+    if (cam.rotation) parts.push(`rotate(${cam.rotation}deg)`);
+    if (cam.flip_horizontal) parts.push("scaleX(-1)");
+    if (cam.flip_vertical) parts.push("scaleY(-1)");
+  }
   return parts.join(" ");
 }
 
@@ -1334,7 +1348,7 @@ function openZoom(t) {
   $("zoomCap").textContent = displayName(t);
   $("zoomHint").textContent = "";
   $("zoomImg").style.display = "";
-  $("zoomImg").style.transform = imgTransform(t.p);
+  $("zoomImg").style.transform = imgTransform(t.p, t.cam);
   $("zoomImg").src = t.img.src;
   $("zoom").classList.add("open");
 }
