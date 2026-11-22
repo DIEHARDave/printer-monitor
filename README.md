@@ -1,3 +1,5 @@
+> **Moved:** this project is now part of [PrintWarden](https://github.com/DIEHARDave/PrintWarden) (private for now), together with TimelapseOffload and Print Watch. This repository is archived and no longer updated.
+
 # Printer Monitor
 
 One web page that shows all your Klipper/Moonraker printers on one screen:
